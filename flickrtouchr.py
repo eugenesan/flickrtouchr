@@ -25,6 +25,7 @@ import cPickle
 import hashlib
 import sys
 import os
+from optparse import OptionParser
 
 API_KEY       = "e224418b91b4af4e8cdb0564716fa9bd"
 SHARED_SECRET = "7cddb9c9716501a0"
@@ -39,6 +40,15 @@ def getText(nodelist):
             rc = rc + node.data
     return rc.encode("utf-8")
 
+def getString(dom, tag):
+    dir = getText(dom.getElementsByTagName(tag)[0].childNodes)
+    # Normalize to ASCII
+    dir = unicodedata.normalize('NFKD', dir.decode("utf-8", "ignore")).encode('ASCII', 'ignore')
+    return dir
+
+def getTitle(dom):
+    return getString(dom, "title")
+
 #
 # Get the frob based on our API_KEY and shared secret
 #
@@ -48,7 +58,7 @@ def getfrob():
     hash   = hashlib.md5(string).hexdigest()
 
     # Formulate the request
-    url    = "http://api.flickr.com/services/rest/?method=flickr.auth.getFrob"
+    url    = "https://api.flickr.com/services/rest/?method=flickr.auth.getFrob"
     url   += "&api_key=" + API_KEY + "&api_sig=" + hash
 
     try:
@@ -78,7 +88,7 @@ def froblogin(frob, perms):
     hash   = hashlib.md5(string).hexdigest()
 
     # Formulate the request
-    url    = "http://api.flickr.com/services/auth/?"
+    url    = "https://api.flickr.com/services/auth/?"
     url   += "api_key=" + API_KEY + "&perms=" + perms
     url   += "&frob=" + frob + "&api_sig=" + hash
 
@@ -103,7 +113,7 @@ def froblogin(frob, perms):
     hash   = hashlib.md5(string).hexdigest()
     
     # Formulate the request
-    url    = "http://api.flickr.com/services/rest/?method=flickr.auth.getToken"
+    url    = "https://api.flickr.com/services/rest/?method=flickr.auth.getToken"
     url   += "&api_key=" + API_KEY + "&frob=" + frob
     url   += "&api_sig=" + hash
 
@@ -156,7 +166,7 @@ def flickrsign(url, token):
 def getphoto(id, token, filename):
     try:
         # Contruct a request to find the sizes
-        url  = "http://api.flickr.com/services/rest/?method=flickr.photos.getSizes"
+        url  = "https://api.flickr.com/services/rest/?method=flickr.photos.getSizes"
         url += "&photo_id=" + id
     
         # Sign the request
@@ -164,7 +174,7 @@ def getphoto(id, token, filename):
     
         # Make the request
         response = urllib2.urlopen(url)
-        
+
         # Parse the XML
         dom = xml.dom.minidom.parse(response)
 
@@ -172,11 +182,13 @@ def getphoto(id, token, filename):
         sizes =  dom.getElementsByTagName("size")
 
         # Grab the original if it exists
-        allowedTags = ("Original", "Video Original", "Large")
-        if (sizes[-1].getAttribute("label") in allowedTags):
+        allowedTags = ("Original", "Video Original", "Large", "Large 2048")
+        largestLabel = sizes[-1].getAttribute("label")
+        #print "%s" % [i.getAttribute("label") for i in sizes]
+        if (largestLabel in allowedTags):
           imgurl = sizes[-1].getAttribute("source")
         else:
-          print "Failed to get original for photo id " + id
+          print "Failed to get %s for photo id %s" % (largestLabel, id)
 
 
         # Free the DOM memory
@@ -196,12 +208,34 @@ def getphoto(id, token, filename):
         print "Failed to retrieve photo id " + id
     
 ######## Main Application ##########
-if __name__ == '__main__':
-
+def main():
     # The first, and only argument needs to be a directory
+
+    parser = OptionParser()
+    parser.add_option("-s", "--setid", dest="setid",
+            help="optional specific set to download")
+    parser.add_option("-u", "--userid", dest="userid",
+            help="optional specific user's favorites or tags to download")
+    parser.add_option("-t", "--tags", dest="tags",
+            help="optional specific user's tags to download")
+    parser.add_option("-d", "--destination", dest="destination",
+            help="directory to save backup")
+    parser.add_option("-p", "--print-sets", dest="printSets", action="store_true", default=False,
+            help="only print set info")
+    (options, args) = parser.parse_args()
+
+    setId = None
+    userId = None
+    tags = None
+    printSets = options.printSets
     try:
-        os.chdir(sys.argv[1])
-    except:
+        destination = options.destination
+        setId = options.setid
+        userId = options.userid
+        tags = options.tags
+        os.chdir(destination)
+    except Exception, e:
+        print type(e).__name__, e
         print "usage: %s directory" % sys.argv[0] 
         sys.exit(1)
 
@@ -221,47 +255,110 @@ if __name__ == '__main__':
         cPickle.dump(config, cache)
         cache.close()
 
-    # Now, construct a query for the list of photo sets
-    url  = "http://api.flickr.com/services/rest/?method=flickr.photosets.getList"
-    url += "&user_id=" + config["user"]
-    url  = flickrsign(url, config["token"])
-
-    # get the result
-    response = urllib2.urlopen(url)
-    
-    # Parse the XML
-    dom = xml.dom.minidom.parse(response)
-
-    # Get the list of Sets
-    sets =  dom.getElementsByTagName("photoset")
-
-    # For each set - create a url
     urls = []
-    for set in sets:
-        pid = set.getAttribute("id")
-        dir = getText(set.getElementsByTagName("title")[0].childNodes)
-        dir = unicodedata.normalize('NFKD', dir.decode("utf-8", "ignore")).encode('ASCII', 'ignore') # Normalize to ASCII
 
-        # Build the list of photos
-        url   = "http://api.flickr.com/services/rest/?method=flickr.photosets.getPhotos"
-        url  += "&photoset_id=" + pid
+    if setId:
+        url = "https://api.flickr.com/services/rest/?method=flickr.photosets.getInfo"
+        url += "&photoset_id=" + setId
+        url = flickrsign(url, config["token"])
+
+        try:
+            response = urllib2.urlopen(url)
+        except:
+            exit(1)
+        dom = xml.dom.minidom.parse(response)
+        sets =  dom.getElementsByTagName("photoset")
+
+
+        # For each set - create a url
+        for set in sets:
+            dir = getTitle(set)
+
+            # Build the list of photos
+            url   = "https://api.flickr.com/services/rest/?method=flickr.photosets.getPhotos"
+            url  += "&extras=original_format,media,last_update"
+            url  += "&photoset_id=" + setId
+
+            # Append to our list of urls
+            urls.append( (url , dir) )
+
+    elif userId:
+        url = "https://api.flickr.com/services/rest/?method=flickr.people.getInfo"
+        url += "&user_id=" + userId
+        url = flickrsign(url, config["token"])
+
+        response = urllib2.urlopen(url)
+        dom = xml.dom.minidom.parse(response)
+        person =  dom.getElementsByTagName("person")[0]
+        username = getString(person, "username")
+
+        if not tags:
+            # Build the list of photos
+            url   = "https://api.flickr.com/services/rest/?method=flickr.favorites.getList"
+            url  += "&user_id=" + userId
+            url  += "&extras=last_update"
+        else:
+            url   = "https://api.flickr.com/services/rest/?method=flickr.photos.search"
+            url  += "&user_id=" + userId
+            url  += "&tags=" + tags
+            url  += "&extras=last_update"
 
         # Append to our list of urls
-        urls.append( (url , dir) )
-    
-    # Free the DOM memory
-    dom.unlink()
+        urls.append( (url , '%s - %s' % (username, tags)) )
+    else:
+        # Now, construct a query for the list of photo sets
+        url  = "https://api.flickr.com/services/rest/?method=flickr.photosets.getList"
+        url += "&user_id=" + config["user"]
+        url  = flickrsign(url, config["token"])
 
-    # Add the photos which are not in any set
-    url   = "http://api.flickr.com/services/rest/?method=flickr.photos.getNotInSet"
-    urls.append( (url, "No Set") )
+        # get the result
+        response = urllib2.urlopen(url)
+        
+        # Parse the XML
+        dom = xml.dom.minidom.parse(response)
 
-    # Add the user's Favourites
-    url   = "http://api.flickr.com/services/rest/?method=flickr.favorites.getList"
-    urls.append( (url, "Favourites") )
+        # Get the list of Sets
+        sets =  dom.getElementsByTagName("photoset")
+
+        # For each set - create a url
+        for set in sets:
+            pid = set.getAttribute("id")
+            dir = getTitle(set)
+
+            # Build the list of photos
+            url   = "https://api.flickr.com/services/rest/?method=flickr.photosets.getPhotos"
+            url  += "&extras=original_format,media,last_update"
+            url  += "&photoset_id=" + pid
+
+            if printSets:
+                print pid, dir
+                print url
+
+            # Append to our list of urls
+            urls.append( (url , dir) )
+        
+        # Free the DOM memory
+        dom.unlink()
+
+        urls.reverse()
+
+        # Add the photos which are not in any set
+        url   = "https://api.flickr.com/services/rest/?method=flickr.photos.getNotInSet"
+        url  += "&extras=original_format,media,last_update"
+        urls.append( (url, "No Set") )
+
+        # Add the user's Favourites
+        url   = "https://api.flickr.com/services/rest/?method=flickr.favorites.getList"
+        url  += "&extras=original_format,media,last_update"
+        urls.append( (url, "Favourites") )
+
+
+    if printSets:
+        exit(1)
 
     # Time to get the photos
     inodes = {}
+    newFiles = []
     for (url , dir) in urls:
         # Create the directory
         try:
@@ -297,27 +394,45 @@ if __name__ == '__main__':
 
                 # Grab the id
                 photoid = photo.getAttribute("id")
+                media = photo.getAttribute("media")
+                last_update = int(photo.getAttribute("lastupdate"))
+                if media == "video":
+                    extension = ".mov"
+                else:
+                    extension = ".jpg"
 
                 # The target
-                target = dir + "/" + photoid + ".jpg"
+                target = dir + "/" + photoid + extension
 
-                # Skip files that exist
+                # Record files that exist
                 if os.access(target, os.R_OK):
                     inodes[photoid] = target
-                    sys.stdout.write('.')
-                    sys.stdout.flush()
-                    continue
+                    mtime = os.path.getmtime(target)
+#                    if last_update > int(mtime):
+#                        newFiles.append((photo, target))
+#                        print photo.getAttribute("title").encode("utf8") + " ... updated in set ... " + dir
+#                    else:
+#                        print photo.getAttribute("title").encode("utf8") + " ... not updated in set ... " + dir
                 else:
-                    print ''
+                    newFiles.append((photo, target))
                     print photo.getAttribute("title").encode("utf8") + " ... in set ... " + dir
                 
-                # Look it up in our dictionary of inodes first
-                if photoid in inodes and inodes[photoid] and os.access(inodes[photoid], os.R_OK):
-                    # woo, we have it already, use a hard-link
-                    os.link(inodes[photoid], target)
-                else:
-                    inodes[photoid] = getphoto(photo.getAttribute("id"), config["token"], target)
-
             # Move on the next page
             page = page + 1
-    print ""
+
+    for (photo, target) in newFiles:
+        # Look it up in our dictionary of inodes first
+        photoid = photo.getAttribute("id")
+        if photoid in inodes and inodes[photoid] and os.access(inodes[photoid], os.R_OK):
+            # woo, we have it already, use a hard-link
+            print "linking photo %s" % target
+            os.link(inodes[photoid], target)
+        else:
+            print "downloading photo %s" % target
+            inodes[photoid] = getphoto(photo.getAttribute("id"), config["token"], target)
+
+if __name__ == '__main__':
+   try:
+      main()
+   except urllib2.URLError:
+      pass
