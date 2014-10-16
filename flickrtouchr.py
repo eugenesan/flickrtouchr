@@ -25,6 +25,7 @@ import cPickle
 import hashlib
 import sys
 import os
+import traceback
 from optparse import OptionParser
 
 API_KEY       = "e224418b91b4af4e8cdb0564716fa9bd"
@@ -276,7 +277,7 @@ def userUrls(userId, tags, urls, config):
     urls.append( (url , '%s - %s' % (username, tags)) )
     return urls
 
-def allUrls(urls, config):
+def allUrls(urls, printSets, config):
     # Now, construct a query for the list of photo sets
     url  = "https://api.flickr.com/services/rest/?method=flickr.photosets.getList"
     url += "&user_id=" + config["user"]
@@ -448,7 +449,7 @@ def main():
             urls = userUrls(userId, tags, urls, config)
 
         else:
-            urls = allUrls(config, urls)
+            urls = allUrls(urls, printSets, config)
 
         if printSets:
             exit(1)
@@ -458,6 +459,7 @@ def main():
         downloadPhotos(newFiles, inodes, config)
 
     except Exception, e:
+        print traceback.format_exc()
         print type(e).__name__, e
 
 if __name__ == '__main__':
