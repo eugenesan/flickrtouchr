@@ -7,14 +7,19 @@
 #
 #                You can then sync the photos to an iPod touch.
 #
-# Version:       1.2
+# Version:       1.3
 #
-# Original Author:	colm - AT - allcosts.net  - Colm MacCarthaigh - 2008-01-21
+# Original Author: colm@allcosts.net - Colm MacCarthaigh - 2008-01-21
 #
-# Modified by:			Dan Benjamin - http://hivelogic.com										
+# Modified by:     Dan Benjamin - http://hivelogic.com
 #
-# License:       		Apache 2.0 - http://www.apache.org/licenses/LICENSE-2.0.html
+# License:         Apache 2.0 - http://www.apache.org/licenses/LICENSE-2.0.html
 #
+# References:
+# http://hivelogic.com/articles/backing-up-flickr/
+# https://github.com/aligature/hivelogic-flickrtouchr (this fork)
+# https://github.com/dan/hivelogic-flickrtouchr (orig)
+# https://github.com/l0b0/hivelogic-flickrtouchr (another fork)
 
 import xml.dom.minidom
 import webbrowser
@@ -65,7 +70,7 @@ def getfrob():
     try:
         # Make the request and extract the frob
         response = urllib2.urlopen(url)
-    
+
         # Parse the XML
         dom = xml.dom.minidom.parse(response)
 
@@ -122,7 +127,7 @@ def froblogin(frob, perms):
     try:
         # Make the request and extract the frob
         response = urllib2.urlopen(url)
-    
+
         # Parse the XML
         dom = xml.dom.minidom.parse(response)
 
@@ -169,10 +174,10 @@ def getphoto(id, token, filename):
         # Contruct a request to find the sizes
         url  = "https://api.flickr.com/services/rest/?method=flickr.photos.getSizes"
         url += "&photo_id=" + id
-    
+
         # Sign the request
         url = flickrsign(url, token)
-    
+
         # Make the request
         response = urllib2.urlopen(url)
 
@@ -191,14 +196,13 @@ def getphoto(id, token, filename):
         else:
           print "Failed to get %s for photo id %s" % (largestLabel, id)
 
-
         # Free the DOM memory
         dom.unlink()
 
         # Grab the image file
         response = urllib2.urlopen(imgurl)
         data = response.read()
-    
+
         # Save the file!
         fh = open(filename, "w")
         fh.write(data)
@@ -308,7 +312,7 @@ def allUrls(urls, printSets, config):
 
         # Append to our list of urls
         urls.append( (url , dir) )
-    
+
     # Free the DOM memory
     dom.unlink()
 
@@ -387,7 +391,7 @@ def getNewPhotos(urls, config):
                 else:
                     newFiles.append((photo, target))
                     print photo.getAttribute("title").encode("utf8") + " ... in set ... " + dir
-                
+
             # Move on the next page
             page = page + 1
 
@@ -433,9 +437,8 @@ def main():
         tags = options.tags
         os.chdir(destination)
     except Exception, e:
-        print type(e).__name__, e
-        print "usage: %s directory" % sys.argv[0] 
-        sys.exit(1)
+        parser.print_help()
+        sys.exit(255)
 
     try:
         config = getUser()
