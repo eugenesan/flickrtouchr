@@ -8,7 +8,23 @@ Run it like this:
 
 <pre>
 mkdir FlickrBackupFolder
-python flickrtouchr.py FlickrBackupFolder
+python flickrtouchr.py -d FlickrBackupFolder
+
+Full usage:
+
+<pre>
+flickrtouchr.py [options]
+
+Options:
+  -h, --help            show this help message and exit
+  -s SETID, --setid=SETID
+                        optional specific set to download
+  -u USERID, --userid=USERID
+                        optional specific user's favorites or tags to download
+  -t TAGS, --tags=TAGS  optional specific user's tags to download
+  -d DESTINATION, --destination=DESTINATION
+                        directory to save backup
+  -p, --print-sets      only print set info
 </pre>
 
 You'll be prompted to authorize with Flickr, and then the magic happens.
