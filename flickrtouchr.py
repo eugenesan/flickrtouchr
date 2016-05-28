@@ -369,6 +369,7 @@ def getNewPhotos(urls, config):
 
                 # Grab the id
                 photoid = photo.getAttribute("id")
+                photoname = photo.getAttribute("title")
                 media = photo.getAttribute("media")
                 last_update = int(photo.getAttribute("lastupdate"))
                 if media == "video":
@@ -377,17 +378,17 @@ def getNewPhotos(urls, config):
                     extension = ".jpg"
 
                 # The target
-                target = dir + "/" + photoid + extension
+                target = dir + "/" + photoname.replace("\\","-").replace("/","-") + extension
 
                 # Record files that exist
                 if os.access(target, os.R_OK):
                     inodes[photoid] = target
                     mtime = os.path.getmtime(target)
-#                    if last_update > int(mtime):
-#                        newFiles.append((photo, target))
-#                        print photo.getAttribute("title").encode("utf8") + " ... updated in set ... " + dir
-#                    else:
-#                        print photo.getAttribute("title").encode("utf8") + " ... not updated in set ... " + dir
+                    if last_update > int(mtime):
+                        newFiles.append((photo, target))
+                        print photo.getAttribute("title").encode("utf8") + " ... updated in set ... " + dir
+                    else:
+                        print photo.getAttribute("title").encode("utf8") + " ... not updated in set ... " + dir
                 else:
                     newFiles.append((photo, target))
                     print photo.getAttribute("title").encode("utf8") + " ... in set ... " + dir
@@ -402,9 +403,11 @@ def downloadPhotos(newFiles, inodes, config):
         # Look it up in our dictionary of inodes first
         photoid = photo.getAttribute("id")
         if photoid in inodes and inodes[photoid] and os.access(inodes[photoid], os.R_OK):
-            # woo, we have it already, use a hard-link
-            print "linking photo %s" % target
-            os.link(inodes[photoid], target)
+            # We have it already
+            #print "linking photo %s" % target
+            #os.link(inodes[photoid], target)
+            print "Photo [%s] already exists as [%s]" % (target, inodes[photoid])
+
         else:
             print "downloading photo %s" % target
             inodes[photoid] = getphoto(photo.getAttribute("id"), config["token"], target)
