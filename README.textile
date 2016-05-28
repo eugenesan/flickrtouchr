@@ -9,6 +9,7 @@ Run it like this:
 <pre>
 mkdir FlickrBackupFolder
 python flickrtouchr.py -d FlickrBackupFolder
+</pre>
 
 Full usage:
 
