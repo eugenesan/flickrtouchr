@@ -88,7 +88,7 @@ def getfrob():
         # Return the frob
         return frob
     except Exception:
-        print ("Could not retrieve frob")
+        print ("Error: Could not retrieve a frob.")
 
 #
 # Login and get a token
@@ -135,7 +135,7 @@ def froblogin(frob, perms):
         # Parse the XML
         dom = xml.dom.minidom.parse(response)
 
-        # get the token and user-id
+        # Get the token and user-id
         token = getText(dom.getElementsByTagName("token")[0].childNodes)
         nsid  = dom.getElementsByTagName("user")[0].getAttribute("nsid")
 
@@ -145,7 +145,7 @@ def froblogin(frob, perms):
         # Return the token and userid
         return (nsid, token)
     except Exception:
-        print("Login failed")
+        print("Error: Login failed.")
 
 #
 # Sign an arbitrary flickr request with a token
@@ -194,11 +194,15 @@ def getphoto(id, token, filename):
         # Grab the original if it exists
         allowedTags = ("Original", "Video Original", "Large", "Large 2048")
         largestLabel = sizes[-1].getAttribute("label")
-        #print "%s" % [i.getAttribute("label") for i in sizes]
         if (largestLabel in allowedTags):
           imgurl = sizes[-1].getAttribute("source")
         else:
-          print("Failed to get %s for photo id %s" % (largestLabel, id))
+            fallbackTags = ("Medium")
+            if (largestLabel in fallbackTags):
+              print("Warning: Only a [%s] copy of the photo id (%s) will be retrieved" % (largestLabel, id))
+              pass
+            else:
+              print("Error: Failed to get size[%s] for photo id (%s)" % (largestLabel, id))
 
         # Free the DOM memory
         dom.unlink()
@@ -214,7 +218,7 @@ def getphoto(id, token, filename):
 
         return filename
     except Exception:
-        print("Failed to retrieve photo id " + id)
+        print("Error: Failed to retrieve photo id (%s)" % id)
 
 def getUser():
     # First things first, see if we have a cached user and auth-token
@@ -242,7 +246,7 @@ def setUrls(setId, urls, config):
     try:
         response = urllib.request.urlopen(url)
     except Exception:
-        print("Failed to performrequest [%s]" % url)
+        print("Error: Failed to perform request [%s]" % url)
         exit(1)
 
     dom = xml.dom.minidom.parse(response)
@@ -321,7 +325,7 @@ def allUrls(urls, printSets, config):
         url += "&photoset_id=" + pid
 
         if printSets:
-            print("[" + pid + "] [" + dir + "]")
+            print("Found photo set [" + pid + "] with title [" + dir + "]:")
             print(url)
 
         # Append to our list of urls
@@ -354,7 +358,7 @@ def getNewPhotos(urls, config):
             os.makedirs(dir)
         except Exception:
             if os.path.isdir(dir):
-                print("Warning: Directory [%s] already exists" % dir)
+                print("Note: Directory [%s] already exists" % dir)
                 pass
             else:
                 print("Error: Couldn't create directory [%s]" % dir)
@@ -408,12 +412,12 @@ def getNewPhotos(urls, config):
                     mtime = os.path.getmtime(target)
                     if last_update > int(mtime):
                         newFiles.append((photo, target))
-                        print("Updated photo [%s] in set [%s]" % (photoname, dir))
+                        print("Added updated photo [%s] in set [%s]" % (photoname, dir))
                     else:
-                        print("Not updated  photo [%s] to set [%s]" % (photoname, dir))
+                        print("Skipping not updated photo [%s] in set [%s]" % (photoname, dir))
                 else:
                     newFiles.append((photo, target))
-                    print("Adding photo [%s] to set [%s]" % (photoname, dir))
+                    print("Adding new photo [%s] to set [%s]" % (photoname, dir))
 
             # Move on the next page
             page = page + 1
@@ -427,7 +431,7 @@ def downloadPhotos(newFiles, inodes, config):
 
         if photoid in inodes and inodes[photoid] and os.access(inodes[photoid], os.R_OK):
             # We have it already
-            print('Warning: Photo [%s](%s) already exists as [%s]' % (target, photoid, inodes[photoid]))
+            print('Note: Photo [%s](%s) already exists as [%s]' % (target, photoid, inodes[photoid]))
             #os.link(inodes[photoid], target)
             getphoto(photo.getAttribute("id"), config["token"], target)
         else:
