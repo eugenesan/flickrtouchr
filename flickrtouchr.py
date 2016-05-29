@@ -9,17 +9,24 @@
 #
 # Version:       1.3
 #
-# Original Author: colm@allcosts.net - Colm MacCarthaigh - 2008-01-21
+# Authors:       Colm MacCarthaigh <colm@allcosts.net>
+#                Dan Benjamin <dan@hivelogic.com>                  [github.com/dan/hivelogic-flickrtouchr]
+#                Victor Engmark <victor.engmark@gmail.com>         [github.com/l0b0/hivelogic-flickrtouchr]
+#                Andy Webber (aligature) <andy@aligature.com>      [github.com/aligature/hivelogic-flickrtouchr]
+#                Eugene Sanivsky (eugenesan) <eugenesan@gmail.com> [github.com/eugenesan/flickrtouchr]
+#                Jesse Newland <jnewland@gmail.com>
+#                rod <rod@arsecandle.org>
+#                Emmanuel Touzery <etouzery@gmail.com>
+#                Yuanchao Zhu <zyc262626@gmail.com>
+#                Tony Duckles <tony@nynim.org>
+#                Tom Insam <tom@jerakeen.org>
+#                Jed Schmidt <tr@nslator.jp>
+#                Myles Braithwaite <me@mylesbraithwaite.com>
+#                matt <matt@atlas.schick.mine.nu>
 #
-# Modified by:     Dan Benjamin - http://hivelogic.com
+# License:       Apache 2.0 - http://www.apache.org/licenses/LICENSE-2.0.html
 #
-# License:         Apache 2.0 - http://www.apache.org/licenses/LICENSE-2.0.html
-#
-# References:
-# http://hivelogic.com/articles/backing-up-flickr/
-# https://github.com/aligature/hivelogic-flickrtouchr (this fork)
-# https://github.com/dan/hivelogic-flickrtouchr (orig)
-# https://github.com/l0b0/hivelogic-flickrtouchr (another fork)
+# Homepage:      http://hivelogic.com/articles/backing-up-flickr/
 
 import xml.dom.minidom
 import webbrowser
@@ -91,9 +98,9 @@ def froblogin(frob, perms):
     hash   = hashlib.md5(string.encode("utf8")).hexdigest()
 
     # Formulate the request
-    url    = "https://api.flickr.com/services/auth/?"
-    url   += "api_key=" + API_KEY + "&perms=" + perms
-    url   += "&frob=" + frob + "&api_sig=" + hash
+    url  = "https://api.flickr.com/services/auth/?"
+    url += "api_key=" + API_KEY + "&perms=" + perms
+    url += "&frob=" + frob + "&api_sig=" + hash
 
     # Tell the user what's happening
     print("In order to allow FlickrTouchr to read your photos and favourites")
@@ -114,11 +121,11 @@ def froblogin(frob, perms):
     # Now, try and retrieve a token
     string = SHARED_SECRET + "api_key" + API_KEY + "frob" + frob + "methodflickr.auth.getToken"
     hash   = hashlib.md5(string.encode("utf8")).hexdigest()
-    
+
     # Formulate the request
-    url    = "https://api.flickr.com/services/rest/?method=flickr.auth.getToken"
-    url   += "&api_key=" + API_KEY + "&frob=" + frob
-    url   += "&api_sig=" + hash
+    url  = "https://api.flickr.com/services/rest/?method=flickr.auth.getToken"
+    url += "&api_key=" + API_KEY + "&frob=" + frob
+    url += "&api_sig=" + hash
 
     # See if we get a token
     try:
@@ -140,9 +147,9 @@ def froblogin(frob, perms):
     except Exception:
         print("Login failed")
 
-# 
+#
 # Sign an arbitrary flickr request with a token
-# 
+#
 def flickrsign(url, token):
     query  = urllib.parse.urlparse(url).query
     query += "&api_key=" + API_KEY + "&auth_token=" + token
@@ -150,7 +157,7 @@ def flickrsign(url, token):
 
     # Create the string to hash
     string = SHARED_SECRET
-    
+
     # Sort the arguments alphabettically
     params.sort()
     for param in params:
@@ -159,7 +166,7 @@ def flickrsign(url, token):
 
     # Now, append the api_key, and the api_sig args
     url += "&api_key=" + API_KEY + "&auth_token=" + token + "&api_sig=" + hash
-    
+
     # Return the signed url
     return url
 
@@ -182,7 +189,7 @@ def getphoto(id, token, filename):
         dom = xml.dom.minidom.parse(response)
 
         # Get the list of sizes
-        sizes =  dom.getElementsByTagName("size")
+        sizes = dom.getElementsByTagName("size")
 
         # Grab the original if it exists
         allowedTags = ("Original", "Video Original", "Large", "Large 2048")
@@ -237,8 +244,9 @@ def setUrls(setId, urls, config):
     except Exception:
         print("Failed to performrequest [%s]" % url)
         exit(1)
+
     dom = xml.dom.minidom.parse(response)
-    sets =  dom.getElementsByTagName("photoset")
+    sets = dom.getElementsByTagName("photoset")
 
     # For each set - create a url
     for set in sets:
@@ -249,13 +257,13 @@ def setUrls(setId, urls, config):
             dir = setId
 
         # Build the list of photos
-        url   = "https://api.flickr.com/services/rest/?method=flickr.photosets.getPhotos"
-        url  += "&extras=original_format,media,last_update"
-        url  += "&photoset_id=" + setId
+        url  = "https://api.flickr.com/services/rest/?method=flickr.photosets.getPhotos"
+        url += "&extras=original_format,media,last_update"
+        url += "&photoset_id=" + setId
 
         # Append to our list of urls
-        urls.append( (url , dir) )
-    
+        urls.append( (url, dir) )
+
     return urls
 
 def userUrls(userId, tags, urls, config):
@@ -265,22 +273,22 @@ def userUrls(userId, tags, urls, config):
 
     response = urllib.request.urlopen(url)
     dom = xml.dom.minidom.parse(response)
-    person =  dom.getElementsByTagName("person")[0]
+    person = dom.getElementsByTagName("person")[0]
     username = getString(person, "username")
 
     if not tags:
         # Build the list of photos
-        url   = "https://api.flickr.com/services/rest/?method=flickr.favorites.getList"
-        url  += "&user_id=" + userId
-        url  += "&extras=last_update"
+        url  = "https://api.flickr.com/services/rest/?method=flickr.favorites.getList"
+        url += "&user_id=" + userId
+        url += "&extras=last_update"
     else:
-        url   = "https://api.flickr.com/services/rest/?method=flickr.photos.search"
-        url  += "&user_id=" + userId
-        url  += "&tags=" + tags
-        url  += "&extras=last_update"
+        url  = "https://api.flickr.com/services/rest/?method=flickr.photos.search"
+        url += "&user_id=" + userId
+        url += "&tags=" + tags
+        url += "&extras=last_update"
 
     # Append to our list of urls
-    urls.append( (url , '%s - %s' % (username, tags)) )
+    urls.append( (url, '%s - %s' % (username, tags)) )
     return urls
 
 def allUrls(urls, printSets, config):
@@ -291,12 +299,12 @@ def allUrls(urls, printSets, config):
 
     # get the result
     response = urllib.request.urlopen(url)
-    
+
     # Parse the XML
     dom = xml.dom.minidom.parse(response)
 
     # Get the list of Sets
-    sets =  dom.getElementsByTagName("photoset")
+    sets = dom.getElementsByTagName("photoset")
 
     # For each set - create a url
     for set in sets:
@@ -308,16 +316,16 @@ def allUrls(urls, printSets, config):
             dir = pid
 
         # Build the list of photos
-        url   = "https://api.flickr.com/services/rest/?method=flickr.photosets.getPhotos"
-        url  += "&extras=original_format,media,last_update"
-        url  += "&photoset_id=" + pid
+        url  = "https://api.flickr.com/services/rest/?method=flickr.photosets.getPhotos"
+        url += "&extras=original_format,media,last_update"
+        url += "&photoset_id=" + pid
 
         if printSets:
             print("[" + pid + "] [" + dir + "]")
             print(url)
 
         # Append to our list of urls
-        urls.append( (url , dir) )
+        urls.append( (url, dir) )
 
     # Free the DOM memory
     dom.unlink()
@@ -333,14 +341,14 @@ def allUrls(urls, printSets, config):
     url   = "https://api.flickr.com/services/rest/?method=flickr.favorites.getList"
     url  += "&extras=original_format,media,last_update"
     urls.append( (url, "Favourites") )
-    
+
     return urls
 
 def getNewPhotos(urls, config):
     # Time to get the photos
     inodes = {}
     newFiles = []
-    for (url , dir) in urls:
+    for (url, dir) in urls:
         # Create the directory
         try:
             os.makedirs(dir)
@@ -375,7 +383,6 @@ def getNewPhotos(urls, config):
 
             # Grab the photos
             for photo in dom.getElementsByTagName("photo"):
-                # Tell the user we're grabbing the file
 
                 # Grab the id, name and last update
                 photoid = photo.getAttribute("id")
@@ -385,9 +392,9 @@ def getNewPhotos(urls, config):
                 # Detect media type
                 media = photo.getAttribute("media")
                 if media == "video":
-                    extension = ".mov"
+                    extension = '.mov'
                 else:
-                    extension = ".jpg"
+                    extension = '.jpg'
 
                 # The target
                 if photoname.strip() == "":
@@ -417,6 +424,7 @@ def downloadPhotos(newFiles, inodes, config):
     for (photo, target) in newFiles:
         # Look it up in our dictionary of inodes first
         photoid = photo.getAttribute("id")
+
         if photoid in inodes and inodes[photoid] and os.access(inodes[photoid], os.R_OK):
             # We have it already
             print('Warning: Photo [%s](%s) already exists as [%s]' % (target, photoid, inodes[photoid]))
