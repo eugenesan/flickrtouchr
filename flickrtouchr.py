@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 
 #
 # FlickrTouchr - a simple python script to grab all your photos from flickr, 
@@ -23,10 +23,10 @@
 
 import xml.dom.minidom
 import webbrowser
-import urlparse
-import urllib2
+import urllib.parse
+import urllib.request, urllib.error, urllib.parse
 import unicodedata
-import cPickle
+import pickle
 import hashlib
 import sys
 import os
@@ -44,12 +44,10 @@ def getText(nodelist):
     for node in nodelist:
         if node.nodeType == node.TEXT_NODE:
             rc = rc + node.data
-    return rc.encode("utf-8")
+    return rc
 
 def getString(dom, tag):
     dir = getText(dom.getElementsByTagName(tag)[0].childNodes)
-    # Normalize to ASCII
-    dir = unicodedata.normalize('NFKD', dir.decode("utf-8", "ignore")).encode('ASCII', 'ignore')
     return dir
 
 def getTitle(dom):
@@ -61,7 +59,7 @@ def getTitle(dom):
 def getfrob():
     # Create our signing string
     string = SHARED_SECRET + "api_key" + API_KEY + "methodflickr.auth.getFrob"
-    hash   = hashlib.md5(string).hexdigest()
+    hash   = hashlib.md5(string.encode("utf8")).hexdigest()
 
     # Formulate the request
     url    = "https://api.flickr.com/services/rest/?method=flickr.auth.getFrob"
@@ -69,7 +67,7 @@ def getfrob():
 
     try:
         # Make the request and extract the frob
-        response = urllib2.urlopen(url)
+        response = urllib.request.urlopen(url)
 
         # Parse the XML
         dom = xml.dom.minidom.parse(response)
@@ -82,16 +80,15 @@ def getfrob():
 
         # Return the frob
         return frob
-
-    except:
-        raise "Could not retrieve frob"
+    except Exception:
+        print ("Could not retrieve frob")
 
 #
 # Login and get a token
 #
 def froblogin(frob, perms):
     string = SHARED_SECRET + "api_key" + API_KEY + "frob" + frob + "perms" + perms
-    hash   = hashlib.md5(string).hexdigest()
+    hash   = hashlib.md5(string.encode("utf8")).hexdigest()
 
     # Formulate the request
     url    = "https://api.flickr.com/services/auth/?"
@@ -99,14 +96,14 @@ def froblogin(frob, perms):
     url   += "&frob=" + frob + "&api_sig=" + hash
 
     # Tell the user what's happening
-    print "In order to allow FlickrTouchr to read your photos and favourites"
-    print "you need to allow the application. Please press return when you've"
-    print "granted access at the following url (which should have opened"
-    print "automatically)."
-    print
-    print url
-    print 
-    print "Waiting for you to press return"
+    print("In order to allow FlickrTouchr to read your photos and favourites")
+    print("you need to allow the application. Please press return when you've")
+    print("granted access at the following url (which should have opened")
+    print("automatically).")
+    print()
+    print(url)
+    print()
+    print("Waiting for you to press return")
 
     # We now have a login url, open it in a web-browser
     webbrowser.open_new(url)
@@ -116,7 +113,7 @@ def froblogin(frob, perms):
 
     # Now, try and retrieve a token
     string = SHARED_SECRET + "api_key" + API_KEY + "frob" + frob + "methodflickr.auth.getToken"
-    hash   = hashlib.md5(string).hexdigest()
+    hash   = hashlib.md5(string.encode("utf8")).hexdigest()
     
     # Formulate the request
     url    = "https://api.flickr.com/services/rest/?method=flickr.auth.getToken"
@@ -126,7 +123,7 @@ def froblogin(frob, perms):
     # See if we get a token
     try:
         # Make the request and extract the frob
-        response = urllib2.urlopen(url)
+        response = urllib.request.urlopen(url)
 
         # Parse the XML
         dom = xml.dom.minidom.parse(response)
@@ -140,14 +137,14 @@ def froblogin(frob, perms):
 
         # Return the token and userid
         return (nsid, token)
-    except:
-        raise "Login failed"
+    except Exception:
+        print("Login failed")
 
 # 
 # Sign an arbitrary flickr request with a token
 # 
 def flickrsign(url, token):
-    query  = urlparse.urlparse(url).query
+    query  = urllib.parse.urlparse(url).query
     query += "&api_key=" + API_KEY + "&auth_token=" + token
     params = query.split('&') 
 
@@ -158,7 +155,7 @@ def flickrsign(url, token):
     params.sort()
     for param in params:
         string += param.replace('=', '')
-    hash   = hashlib.md5(string).hexdigest()
+    hash   = hashlib.md5(string.encode("utf8")).hexdigest()
 
     # Now, append the api_key, and the api_sig args
     url += "&api_key=" + API_KEY + "&auth_token=" + token + "&api_sig=" + hash
@@ -179,7 +176,7 @@ def getphoto(id, token, filename):
         url = flickrsign(url, token)
 
         # Make the request
-        response = urllib2.urlopen(url)
+        response = urllib.request.urlopen(url)
 
         # Parse the XML
         dom = xml.dom.minidom.parse(response)
@@ -194,39 +191,39 @@ def getphoto(id, token, filename):
         if (largestLabel in allowedTags):
           imgurl = sizes[-1].getAttribute("source")
         else:
-          print "Failed to get %s for photo id %s" % (largestLabel, id)
+          print("Failed to get %s for photo id %s" % (largestLabel, id))
 
         # Free the DOM memory
         dom.unlink()
 
         # Grab the image file
-        response = urllib2.urlopen(imgurl)
+        response = urllib.request.urlopen(imgurl)
         data = response.read()
 
         # Save the file!
-        fh = open(filename, "w")
+        fh = open(filename, "wb")
         fh.write(data)
         fh.close()
 
         return filename
-    except:
-        print "Failed to retrieve photo id " + id
+    except Exception:
+        print("Failed to retrieve photo id " + id)
 
 def getUser():
     # First things first, see if we have a cached user and auth-token
     try:
-        cache = open("touchr.frob.cache", "r")
-        config = cPickle.load(cache)
+        cache = open("touchr.frob.cache", "rb")
+        config = pickle.load(cache)
         cache.close()
 
     # We don't - get a new one
-    except:
+    except Exception:
         (user, token) = froblogin(getfrob(), "read")
         config = { "version":1 , "user":user, "token":token }  
 
         # Save it for future use
-        cache = open("touchr.frob.cache", "w")
-        cPickle.dump(config, cache)
+        cache = open("touchr.frob.cache", "wb")
+        pickle.dump(config, cache)
         cache.close()
     return config
 
@@ -236,15 +233,20 @@ def setUrls(setId, urls, config):
     url = flickrsign(url, config["token"])
 
     try:
-        response = urllib2.urlopen(url)
-    except:
+        response = urllib.request.urlopen(url)
+    except Exception:
+        print("Failed to performrequest [%s]" % url)
         exit(1)
     dom = xml.dom.minidom.parse(response)
     sets =  dom.getElementsByTagName("photoset")
 
     # For each set - create a url
     for set in sets:
-        dir = getTitle(set)
+        dir = getTitle(set).replace("\\", "_").replace("/", "_")
+
+        # Make sure set's dir is not empty
+        if dir.strip() == "":
+            dir = setId
 
         # Build the list of photos
         url   = "https://api.flickr.com/services/rest/?method=flickr.photosets.getPhotos"
@@ -261,7 +263,7 @@ def userUrls(userId, tags, urls, config):
     url += "&user_id=" + userId
     url = flickrsign(url, config["token"])
 
-    response = urllib2.urlopen(url)
+    response = urllib.request.urlopen(url)
     dom = xml.dom.minidom.parse(response)
     person =  dom.getElementsByTagName("person")[0]
     username = getString(person, "username")
@@ -288,7 +290,7 @@ def allUrls(urls, printSets, config):
     url  = flickrsign(url, config["token"])
 
     # get the result
-    response = urllib2.urlopen(url)
+    response = urllib.request.urlopen(url)
     
     # Parse the XML
     dom = xml.dom.minidom.parse(response)
@@ -299,7 +301,11 @@ def allUrls(urls, printSets, config):
     # For each set - create a url
     for set in sets:
         pid = set.getAttribute("id")
-        dir = getTitle(set)
+        dir = getTitle(set).replace("\\", "_").replace("/", "_")
+
+        # Make sure set's dir is not empty
+        if dir.strip() == "":
+            dir = pid
 
         # Build the list of photos
         url   = "https://api.flickr.com/services/rest/?method=flickr.photosets.getPhotos"
@@ -307,8 +313,8 @@ def allUrls(urls, printSets, config):
         url  += "&photoset_id=" + pid
 
         if printSets:
-            print pid, dir
-            print url
+            print("[" + pid + "] [" + dir + "]")
+            print(url)
 
         # Append to our list of urls
         urls.append( (url , dir) )
@@ -338,8 +344,12 @@ def getNewPhotos(urls, config):
         # Create the directory
         try:
             os.makedirs(dir)
-        except:
-            pass
+        except Exception:
+            if os.path.isdir(dir):
+                print("Warning: Directory [%s] already exists" % dir)
+                pass
+            else:
+                print("Error: Couldn't create directory [%s]" % dir)
 
         # Get 500 results per page
         url += "&per_page=500"
@@ -352,7 +362,7 @@ def getNewPhotos(urls, config):
             request = flickrsign(request, config["token"])
 
             # Make the request
-            response = urllib2.urlopen(request)
+            response = urllib.request.urlopen(request)
 
             # Parse the XML
             dom = xml.dom.minidom.parse(response)
@@ -367,18 +377,23 @@ def getNewPhotos(urls, config):
             for photo in dom.getElementsByTagName("photo"):
                 # Tell the user we're grabbing the file
 
-                # Grab the id
+                # Grab the id, name and last update
                 photoid = photo.getAttribute("id")
                 photoname = photo.getAttribute("title")
-                media = photo.getAttribute("media")
                 last_update = int(photo.getAttribute("lastupdate"))
+
+                # Detect media type
+                media = photo.getAttribute("media")
                 if media == "video":
                     extension = ".mov"
                 else:
                     extension = ".jpg"
 
                 # The target
-                target = dir + "/" + photoname.replace("\\","-").replace("/","-") + extension
+                if photoname.strip() == "":
+                    photoname = photoid
+
+                target = '%s/%s%s' % (dir, photoname.replace("\\", "-").replace("/", "-"), extension)
 
                 # Record files that exist
                 if os.access(target, os.R_OK):
@@ -386,12 +401,12 @@ def getNewPhotos(urls, config):
                     mtime = os.path.getmtime(target)
                     if last_update > int(mtime):
                         newFiles.append((photo, target))
-                        print photo.getAttribute("title").encode("utf8") + " ... updated in set ... " + dir
+                        print("Updated photo [%s] in set [%s]" % (photoname, dir))
                     else:
-                        print photo.getAttribute("title").encode("utf8") + " ... not updated in set ... " + dir
+                        print("Not updated  photo [%s] to set [%s]" % (photoname, dir))
                 else:
                     newFiles.append((photo, target))
-                    print photo.getAttribute("title").encode("utf8") + " ... in set ... " + dir
+                    print("Adding photo [%s] to set [%s]" % (photoname, dir))
 
             # Move on the next page
             page = page + 1
@@ -404,12 +419,11 @@ def downloadPhotos(newFiles, inodes, config):
         photoid = photo.getAttribute("id")
         if photoid in inodes and inodes[photoid] and os.access(inodes[photoid], os.R_OK):
             # We have it already
-            #print "linking photo %s" % target
+            print('Warning: Photo [%s](%s) already exists as [%s]' % (target, photoid, inodes[photoid]))
             #os.link(inodes[photoid], target)
-            print "Photo [%s] already exists as [%s]" % (target, inodes[photoid])
-
+            getphoto(photo.getAttribute("id"), config["token"], target)
         else:
-            print "downloading photo %s" % target
+            print('Downloading photo [%s](%s)' % (target, photoid))
             inodes[photoid] = getphoto(photo.getAttribute("id"), config["token"], target)
 
 ######## Main Application ##########
@@ -439,7 +453,7 @@ def main():
         userId = options.userid
         tags = options.tags
         os.chdir(destination)
-    except Exception, e:
+    except Exception as e:
         parser.print_help()
         sys.exit(255)
 
@@ -464,12 +478,12 @@ def main():
 
         downloadPhotos(newFiles, inodes, config)
 
-    except Exception, e:
-        print traceback.format_exc()
-        print type(e).__name__, e
+    except Exception as e:
+        print(traceback.format_exc())
+        print(type(e).__name__, e)
 
 if __name__ == '__main__':
    try:
       main()
-   except urllib2.URLError:
+   except urllib.error.URLError:
       pass
